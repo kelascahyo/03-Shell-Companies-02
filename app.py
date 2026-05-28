@@ -29,9 +29,9 @@ css_style = """
 st.components.v1.html(css_style, height=0, width=0)
 
 # 3. Narasi Analisis Eksekutif dalam Bahasa Inggris
-st.title("🛡️ Anti-Tax Avoidance & Shell Company Network Analyzer")
+st.title("Company Network Visualisation")
 st.markdown("""
-### Executive Brief & System Overview
+### Overview
 This analytics workspace is purpose-built to map corporate structures, identify cross-border profit shifting, and flag **Shell Companies** or high-risk unregistered entities. Entities designated as **LN (Luar Negeri / Foreign)** or **Non NPWP (No Tax Registration Number)** represent strategic transfer-pricing risk surfaces where outbound capital, dividends, or ownership values can be obfuscated to achieve aggressive tax optimization or tax evasion.
 
 **Analytic Focus:** Detecting Indonesian domestic corporate entities (`Badan`) that redirect substantial dividend streams or transfer heavy equity percentages into high-risk foreign jurisdictions or unregistered structures.
@@ -69,7 +69,7 @@ if nodes_df is not None and edges_df is not None:
     nodes_df['total_dividen_outbound'] = nodes_df['id'].map(outbound_div).fillna(0)
 
     # 5. Panel Kontrol Navigasi & Filter di Sidebar
-    st.sidebar.header("🔍 Dynamic Network Filtering")
+    st.sidebar.header("Dynamic Network Filtering")
     
     analysis_mode = st.sidebar.radio(
         "Select Scope View:",
@@ -108,11 +108,11 @@ if nodes_df is not None and edges_df is not None:
     
     col1, col2, col3 = st.columns(3)
     with col1:
-        st.metric(label="🚨 TOTAL FLAGGED OUTBOUND DIVIDENDS", value=f"Rp {total_leakage:,.2f}")
+        st.metric(label="TOTAL FLAGGED OUTBOUND DIVIDENDS", value=f"Rp {total_leakage:,.2f}")
     with col2:
-        st.metric(label="🏢 HIGH-RISK SHELL NODES (LN & NON-NPWP)", value=f"{high_risk_count} Entities")
+        st.metric(label="HIGH-RISK SHELL NODES (LN & NON-NPWP)", value=f"{high_risk_count} Entities")
     with col3:
-        st.metric(label="🔗 TOTAL ACTIVE NETWORK TIES", value=f"{len(filtered_edges)} Links")
+        st.metric(label="TOTAL ACTIVE NETWORK TIES", value=f"{len(filtered_edges)} Links")
 
     # 7. Transformasi Objek Data Menjadi Format Node-Link JSON untuk D3.js
     d3_nodes = []
@@ -144,8 +144,8 @@ if nodes_df is not None and edges_df is not None:
     graph_payload = {"nodes": d3_nodes, "links": d3_links}
 
     # 8. Render Jaringan Jaringan Interaktif D3.js menggunakan Iframe Sandbox
-    st.subheader("🕸️ Interactive Relational Graph Layer (D3.js Force Simulation)")
-    st.info("💡 Interaction Tip: Drag nodes to rearrange. Hover over nodes or connection vectors to drill-down into detailed tax transaction attributes & dividend paths.")
+    st.subheader("Interactive Relational Network")
+    # st.info("💡 Interaction Tip: Drag nodes to rearrange. Hover over nodes or connection vectors to drill-down into detailed tax transaction attributes & dividend paths.")
 
     if os.path.exists("components/d3_network.html"):
         with open("components/d3_network.html", "r", encoding="utf-8") as html_f:
@@ -161,7 +161,7 @@ if nodes_df is not None and edges_df is not None:
         st.error("Missing components/d3_network.html file!")
 
     # 9. Tabel Log Investigasi Forensik Pajak Berisiko Tinggi
-    st.subheader("📊 High-Risk Outbound Transfer Transaction Logs")
+    st.subheader("High-Risk Outbound Transfer Transaction Logs")
     risk_table = filtered_edges[filtered_edges['is_to_high_risk']].copy()
     if not risk_table.empty:
         risk_table['Source Corporate'] = risk_table['sumber'].map(node_name_map)
