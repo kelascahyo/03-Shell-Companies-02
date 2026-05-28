@@ -144,7 +144,7 @@ if nodes_df is not None and edges_df is not None:
     graph_payload = {"nodes": d3_nodes, "links": d3_links}
 
     # 8. Render Jaringan Jaringan Interaktif D3.js menggunakan Iframe Sandbox
-    st.subheader("Interactive Relational Network")
+    # st.subheader("Interactive Relational Network")
     # st.info("💡 Interaction Tip: Drag nodes to rearrange. Hover over nodes or connection vectors to drill-down into detailed tax transaction attributes & dividend paths.")
 
     if os.path.exists("components/d3_network.html"):
