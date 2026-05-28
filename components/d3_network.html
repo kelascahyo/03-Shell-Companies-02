@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>D3 Force Directed Graph - Tax Risk Analysis</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #0e1117;
+            color: #ffffff;
+            overflow: hidden;
+        }
+        #graph-container {
+            width: 100vw;
+            height: 100vh;
+            position: relative;
+        }
+        .node {
+            stroke: #262730;
+            stroke-width: 2px;
+            cursor: pointer;
+            transition: stroke-width 0.2s ease;
+        }
+        .node:hover {
+            stroke: #ffffff;
+            stroke-width: 3px;
+        }
+        .link {
+            stroke-opacity: 0.6;
+            stroke-linecap: round;
+            cursor: pointer;
+        }
+        .link:hover {
+            stroke-opacity: 1 !important;
+            stroke-width: 4px !important;
+        }
+        .tooltip {
+            position: absolute;
+            background: rgba(38, 39, 48, 0.95);
+            border: 1px solid #464855;
+            border-radius: 6px;
+            padding: 12px;
+            font-size: 13px;
+            pointer-events: none;
+            opacity: 0;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+            max-width: 300px;
+            z-index: 1000;
+            color: #f0f2f6;
+        }
+        .tooltip-title {
+            font-weight: bold;
+            border-bottom: 1px solid #464855;
+            padding-bottom: 4px;
+            margin-bottom: 6px;
+            color: #ff4b4b;
+        }
+        .legend {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            background: rgba(26, 28, 36, 0.9);
+            border: 1px solid #464855;
+            border-radius: 6px;
+            padding: 12px;
+            font-size: 12px;
+            pointer-events: auto;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 6px;
+        }
+        .legend-color {
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            margin-right: 8px;
+            border: 1px solid #262730;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="graph-container"></div>
+    <div class="tooltip" id="tooltip"></div>
+
+    <div class="legend">
+        <div style="font-weight: bold; margin-bottom: 8px; color: #ffffff;">Entity Types</div>
+        <div class="legend-item"><div class="legend-color" style="background-color: #1f77b4;"></div>Badan (Corporate)</div>
+        <div class="legend-item"><div class="legend-color" style="background-color: #2ca02c;"></div>OP (Individual)</div>
+        <div class="legend-item"><div class="legend-color" style="background-color: #ff7f0e;"></div>LN (Foreign / Shell Risk)</div>
+        <div class="legend-item"><div class="legend-color" style="background-color: #d62728;"></div>Non NPWP (Unregistered Risk)</div>
+    </div>
+
+    <script>
+        window.addEventListener("message", function(event) {
+            if (event.data.type === "streamlit:render") {
+                const graphData = event.data.args.graph_data;
+                renderGraph(graphData);
+            }
+        });
+
+        function initGraphFromWindowData() {
+            if (window.graphDataPayload) {
+                renderGraph(window.graphDataPayload);
+            }
+        }
+
+        function formatIDR(val) {
+            if (!val && val !== 0) return "Rp 0";
+            return "Rp " + Number(val).toLocaleString('id-ID');
+        }
+
+        function renderGraph(data) {
+            d3.select("#graph-container").html("");
+
+            const width = window.innerWidth;
+            const height = window.innerHeight;
+
+            const svg = d3.select("#graph-container")
+                .append("svg")
+                .attr("width", "100%")
+                .attr("height", "100%")
+                .call(d3.zoom().on("zoom", (event) => {
+                    g.attr("transform", event.transform);
+                }));
+
+            const g = svg.append("g");
+
+            const colorMap = {
+                "Badan": "#1f77b4",
+                "OP": "#2ca02c",
+                "LN": "#ff7f0e",
+                "Non NPWP": "#d62728"
+            };
+
+            const tooltip = d3.select("#tooltip");
+
+            const simulation = d3.forceSimulation(data.nodes)
+                .force("link", d3.forceLink(data.links).id(d => d.id).distance(110))
+                .force("charge", d3.forceManyBody().strength(-200))
+                .force("center", d3.forceCenter(width / 2, height / 2))
+                .force("collision", d3.forceCollide().radius(28));
+
+            const link = g.append("g")
+                .selectAll("line")
+                .data(data.links)
+                .enter().append("line")
+                .attr("class", "link")
+                .attr("stroke", d => d.high_risk_connection ? "#ff4b4b" : "#464855")
+                .attr("stroke-width", d => Math.max(1.5, Math.min(6, (d.persentase / 20))))
+                .on("mouseover", function(event, d) {
+                    d3.select(this).attr("stroke", "#ffffff");
+                    tooltip.transition().duration(100).style("opacity", 1);
+                    tooltip.html(`
+                        <div class="tooltip-title">Transaction / Relation Link</div>
+                        <b>Source:</b> ${d.source_name} (${d.source_type})<br/>
+                        <b>Target:</b> ${d.target_name} (${d.target_type})<br/>
+                        <hr style="border:0; border-top:1px solid #464855; margin:6px 0;"/>
+                        <b>Ownership %:</b> ${d.persentase}%<br/>
+                        <b>Shares Value:</b> ${formatIDR(d.nilai)}<br/>
+                        <b>Dividends Sent:</b> <span style="color:#ff9b9b; font-weight:bold;">${formatIDR(d.dividen)}</span>
+                    `)
+                    .style("left", (event.clientX + 15) + "px")
+                    .style("top", (event.clientY - 15) + "px");
+                })
+                .on("mousemove", function(event) {
+                    tooltip.style("left", (event.clientX + 15) + "px")
+                        .style("top", (event.clientY - 15) + "px");
+                })
+                .on("mouseout", function(event, d) {
+                    d3.select(this).attr("stroke", d.high_risk_connection ? "#ff4b4b" : "#464855");
+                    tooltip.transition().duration(100).style("opacity", 0);
+                });
+
+            const node = g.append("g")
+                .selectAll("circle")
+                .data(data.nodes)
+                .enter().append("circle")
+                .attr("class", "node")
+                .attr("r", d => d.jenis_node === "LN" || d.jenis_node === "Non NPWP" ? 13 : 9)
+                .attr("fill", d => colorMap[d.jenis_node] || "#999999")
+                .call(d3.drag()
+                    .on("start", dragstarted)
+                    .on("drag", dragged)
+                    .on("end", dragended));
+
+            const label = g.append("g")
+                .selectAll("text")
+                .data(data.nodes)
+                .enter().append("text")
+                .attr("dx", 15)
+                .attr("dy", ".35em")
+                .style("font-size", "11px")
+                .style("fill", "#e0e0e0")
+                .style("pointer-events", "none")
+                .text(d => d.nama);
+
+            node.on("mouseover", function(event, d) {
+                tooltip.transition().duration(100).style("opacity", 1);
+                tooltip.html(`
+                    <div class="tooltip-title" style="color: ${colorMap[d.jenis_node]}">${d.jenis_node} Entity</div>
+                    <b>Taxpayer ID:</b> ${d.id}<br/>
+                    <b>Name:</b> ${d.nama}<br/>
+                    <b>Type:</b> ${d.jenis_node}<br/>
+                    <hr style="border:0; border-top:1px solid #464855; margin:6px 0;"/>
+                    <b>Total Outbound Dividends Flow:</b> ${formatIDR(d.total_dividen_outbound || 0)}
+                `)
+                .style("left", (event.clientX + 15) + "px")
+                .style("top", (event.clientY - 15) + "px");
+            })
+            .on("mousemove", function(event) {
+                tooltip.style("left", (event.clientX + 15) + "px")
+                    .style("top", (event.clientY - 15) + "px");
+            })
+            .on("mouseout", function() {
+                tooltip.transition().duration(100).style("opacity", 0);
+            });
+
+            simulation.on("tick", () => {
+                link
+                    .attr("x1", d => d.source.x)
+                    .attr("y1", d => d.source.y)
+                    .attr("x2", d => d.target.x)
+                    .attr("y2", d => d.target.y);
+
+                node
+                    .attr("cx", d => d.x)
+                    .attr("cy", d => d.y);
+
+                label
+                    .attr("x", d => d.x)
+                    .attr("y", d => d.y);
+            });
+
+            function dragstarted(event, d) {
+                if (!event.active) simulation.alphaTarget(0.3).restart();
+                d.fx = d.x;
+                d.fy = d.y;
+            }
+
+            function dragged(event, d) {
+                d.fx = event.x;
+                d.fy = event.y;
+            }
+
+            function dragended(event, d) {
+                if (!event.active) simulation.alphaTarget(0);
+                d.fx = null;
+                d.fy = null;
+            }
+        }
+
+        // Run immediately if embedded directly with data injected into window payload
+        setTimeout(initGraphFromWindowData, 200);
+    </script>
+</body>
+</html>
